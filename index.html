@@ -1,0 +1,1764 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>4x4 Friendship Analyzer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    /* === BASIC, UGLY-BUT-CLEAR LAYOUT (we can pretty this up later) === */
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
+      /* Magical woven-light / goddess-loom background */
+      background:
+        radial-gradient(circle at top left, rgba(248, 187, 247, 0.25), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(191, 219, 254, 0.25), transparent 55%),
+        #050414 url('woven-light-bg.png') center/cover fixed no-repeat;
+      color: #e5e7eb;
+    }
+    header {
+      padding: 1rem;
+      background: #0f172a;
+      border-bottom: 1px solid #1f2937;
+    }
+    header h1 {
+      margin: 0 0 0.25rem 0;
+      font-size: 1.4rem;
+      font-family: "Caveat", system-ui, sans-serif;
+      letter-spacing: 0.03em;
+    }
+    header p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #9ca3af;
+    }
+
+    main {
+      padding: 1rem;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+      gap: 1rem;
+    }
+
+    section {
+      background: rgba(15, 23, 42, 0.85); /* slightly see-through, lets the dreamy bg glow */
+      border-radius: 0.75rem;
+      border: 1px solid #1f2937;
+      padding: 0.75rem 1rem 1rem;
+      backdrop-filter: blur(4px);
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 1.15rem;
+      border-bottom: 1px solid #1f2937;
+      padding-bottom: 0.25rem;
+      margin-bottom: 0.5rem;
+      font-family: "Caveat", system-ui, sans-serif;
+      letter-spacing: 0.02em;
+    }
+
+    h3 {
+      margin-top: 0.75rem;
+      font-size: 0.95rem;
+      border-bottom: 1px solid #111827;
+      padding-bottom: 0.25rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .small {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      margin-right: 0.25rem;
+    }
+
+    .pill-bestie { background: #065f46; color: #ecfdf5; }
+    .pill-friend { background: #1d4ed8; color: #e0f2fe; }
+    .pill-maybe { background: #92400e; color: #fffbeb; }
+    .pill-hiatus { background: #4b5563; color: #e5e7eb; }
+
+    /* Traffic-light status dots for check-in timing */
+    .status-dot {
+      display: inline-block;
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 999px;
+      margin-right: 0.35rem;
+    }
+    .dot-green  { background: #22c55e; }
+    .dot-yellow { background: #facc15; }
+    .dot-red    { background: #f87171; }
+
+    .pill-green { background: #166534; color: #bbf7d0; }
+    .pill-yellow { background: #854d0e; color: #fef3c7; }
+    .pill-red { background: #7f1d1d; color: #fee2e2; }
+
+    .flex-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .field-with-help {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .field-with-help select,
+    .field-with-help input {
+      flex: 1;
+    }
+
+    .help-button {
+      margin-top: 0;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.45rem;
+      white-space: nowrap;
+    }
+
+    /* Simple modal for "Help me decide" */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.85);
+      display: none; /* shown via JS */
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .modal {
+      background: #020617;
+      border-radius: 0.75rem;
+      border: 1px solid #1f2937;
+      padding: 1rem 1.1rem 0.9rem;
+      max-width: 24rem;
+      width: 90%;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.7);
+    }
+
+    .modal h3 {
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #1f2937;
+      padding-bottom: 0.25rem;
+      font-size: 1rem;
+    }
+
+    .modal .small {
+      margin-bottom: 0.75rem;
+    }
+
+    .friend-card {
+      border: 1px solid #1f2937;
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .friend-name {
+      font-weight: 600;
+      font-family: "Caveat", system-ui, sans-serif;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0.1rem;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.3rem 0.4rem;
+      border-radius: 0.3rem;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.8rem;
+    }
+
+    textarea {
+      min-height: 3rem;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 0.5rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 0.4rem;
+      border: 1px solid #4b5563;
+      background: #1e293b;
+      color: #e5e7eb;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #111827;
+    }
+
+    .inline-button {
+      margin-top: 0;
+      margin-left: 0.5rem;
+      padding: 0.2rem 0.45rem;
+      font-size: 0.7rem;
+    }
+
+    .two-cols {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    .event-item {
+      margin-bottom: 0.35rem;
+      font-size: 0.8rem;
+    }
+
+    .muted {
+      color: #9ca3af;
+      font-size: 0.8rem;
+    }
+
+    .warning {
+      color: #fbbf24;
+      font-size: 0.8rem;
+    }
+
+    .danger {
+      color: #fca5a5;
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 800px) {
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>4×4 Friendship Analyzer</h1>
+    <p class="small">
+      A tiny personal brain for friendships: see who exists, when to reach out, and what’s coming up this week.
+    </p>
+  </header>
+
+  <main>
+    <!-- ==================== LEFT COLUMN ==================== -->
+    <div>
+      <!-- === FRIEND LIST BY CATEGORY (TOP) === -->
+      <section id="friends-section">
+        <h2>👥 Your People (by category)</h2>
+        <div id="friends-by-category">
+          <!-- Filled by JS -->
+        </div>
+      </section>
+
+      <!-- === BUTTON: OPEN FRIEND PROFILE MODAL === -->
+      <div style="margin:0.5rem 0 0.75rem; text-align:center;">
+        <button id="open-friend-modal-btn">
+          ➕ Add / Update Friend
+        </button>
+      </div>
+
+      <!-- === 4×4 FRIEND CHART PREVIEW (placeholder for now) === -->
+      <section id="checkin-section">
+        <h2>📊 See full friend chart</h2>
+        <div id="checkin-list" class="small">
+          <!-- Filled by JS -->
+        </div>
+      </section>
+
+      <!-- === BACKUPS & EXPORTS === -->
+      <section id="backup-section">
+        <h2>🧾 Backups & Exports</h2>
+        <p class="small">
+          Save or restore your people + events so you never feel stuck putting tender info in here.
+        </p>
+
+        <h3>Friendship data</h3>
+        <button id="btn-export-friend-text">
+          Download current friendship categories list (text)
+        </button>
+        <button id="btn-export-backup-json">
+          Download full backup (JSON)
+        </button>
+        <p class="small">
+          The JSON backup is a tech-y text file (you can still open it in any text editor) that includes:
+          all friends + all friend events + your own events.
+        </p>
+
+        <div class="small" style="margin-top:0.5rem;">
+          <label for="backup-import-mode">When importing backup:</label>
+          <select id="backup-import-mode">
+            <option value="overwrite">Overwrite current data</option>
+            <option value="merge">Merge with current data (dedupe by id)</option>
+          </select>
+          <br />
+          <label for="backup-import-input">Upload previous backup (JSON)</label>
+          <input type="file" id="backup-import-input" accept=".json,application/json" />
+          <p class="small">
+            Tip: Use “Download full backup (JSON)” above to create files that can be safely re-imported here.
+          </p>
+        </div>
+
+        <h3>Calendar snapshots (read-only exports)</h3>
+        <button id="btn-export-recurring">
+          Download recurring friend events (birthdays/anniversaries) – text
+        </button>
+        <button id="btn-export-month-current">
+          Download current month calendar data – text
+        </button>
+        <button id="btn-export-month-next">
+          Download next month calendar data – text
+        </button>
+        <p class="small">
+          These three are just for reading/printing/journaling. Your actual backup/restore lives in the JSON backup above.
+        </p>
+      </section>
+    </div>
+
+
+    <!-- ==================== RIGHT COLUMN ==================== -->
+    <div>
+      <!-- === UPCOMING EVENTS (now on the right) === -->
+      <section id="upcoming-section">
+        <h2>🌱 This Week’s Emotional To-Do List</h2>
+        <div id="upcoming-list" class="small">
+          <!-- Filled by JS -->
+        </div>
+      </section>
+
+      <!-- === CALENDAR + EVENT BUTTONS === -->
+      <section id="calendar-controls-section">
+        <h2>📅 Calendar & events</h2>
+        <p class="small">
+          Birthdays, surgeries, trips, and your own big life things all land here.
+        </p>
+        <button id="open-calendar-btn">Open full calendar</button>
+        <button id="open-friend-event-modal-btn" class="inline-button">
+          Add friend event
+        </button>
+        <button id="open-personal-event-modal-btn" class="inline-button">
+          Add your own event
+        </button>
+      </section>
+    </div>
+
+
+          <label for="friend-safety-color">Safety / emotional impact</label>
+          <div class="field-with-help">
+            <select id="friend-safety-color">
+              <option value="green">🟢 Feels safe & nourishing</option>
+              <option value="yellow">🟡 Mixed / draining sometimes</option>
+              <option value="red">🔴 Harmful or potentially unsafe</option>
+            </select>
+            <button
+              type="button"
+              class="inline-button help-button"
+              onclick="openHelpModal('safety')"
+            >
+              Help me decide
+            </button>
+          </div>
+
+          <div class="two-cols">
+            <div>
+              <label for="friend-closeness">4×4: How close do YOU feel? (1–4)</label>
+              <div class="field-with-help">
+                <select id="friend-closeness">
+                  <option value="1">1 – Mostly acquaintance</option>
+                  <option value="2">2 – Casual friend</option>
+                  <option value="3">3 – Close friend</option>
+                  <option value="4" selected>4 – Deep / ride-or-die</option>
+                </select>
+                <button
+                  type="button"
+                  class="inline-button help-button"
+                  onclick="openHelpModal('closeness')"
+                >
+                  Help me decide
+                </button>
+              </div>
+            </div>
+            
+            <div>
+              <label for="friend-reciprocity">4×4: How much do THEY show up? (1–4)</label>
+              <div class="field-with-help">
+                <select id="friend-reciprocity">
+                  <option value="4">4 – Very reliable</option>
+                  <option value="3">3 – Pretty balanced</option>
+                  <option value="2">2 – Slightly one-sided</option>
+                  <option value="1">1 – Mostly you chasing</option>
+                </select>
+                <button
+                  type="button"
+                  class="inline-button help-button"
+                  onclick="openHelpModal('reciprocity')"
+                >
+                  Help me decide
+                </button>
+              </div>
+            </div>
+
+          <label for="friend-last-contact">Last contact date</label>
+          <input id="friend-last-contact" type="date" />
+
+          <label for="friend-ideal-gap">Ideal check-in gap (days)</label>
+          <div class="field-with-help">
+            <input id="friend-ideal-gap" type="number" min="1" max="365" value="14" />
+            <button
+              type="button"
+              class="inline-button help-button"
+              onclick="openHelpModal('ideal-gap')"
+            >
+              Help me decide
+            </button>
+          </div>
+
+          <label for="friend-notes">Notes</label>
+          <textarea id="friend-notes" placeholder="Kids’ names, pronouns, triggers, how you met, etc."></textarea>
+
+          <label for="friend-photo-url">Photo URL (optional for now)</label>
+          <input id="friend-photo-url" placeholder="We can wire up full upload later" />
+
+          <button type="submit">Save friend</button>
+          <button type="button" id="friend-form-reset" class="inline-button">Clear form</button>
+        </form>
+        <!-- FRIEND-FORM-END -->
+      </section>
+
+      <!-- === FORMS: ADD FRIEND EVENT === -->
+      <section id="friend-event-section">
+        <h2>🎉 Add Friend Event (birthday, surgery, trip…)</h2>
+        <!-- FRIEND-EVENT-FORM-START -->
+        <form id="friend-event-form">
+          <label for="event-friend-select">Friend</label>
+          <select id="event-friend-select">
+            <!-- Filled by JS -->
+          </select>
+
+          <label for="event-title">Event description</label>
+          <input id="event-title" placeholder="e.g., Birthday, Last chemo, Disneyland trip" />
+
+          <label for="event-type">Type</label>
+          <select id="event-type">
+            <option value="birthday">Birthday</option>
+            <option value="anniversary">Anniversary</option>
+            <option value="medical">Medical / surgery / treatment</option>
+            <option value="trip">Trip / big adventure</option>
+            <option value="other">Other</option>
+          </select>
+
+          <label for="event-date">Date</label>
+          <input id="event-date" type="date" />
+
+          <label for="event-repeat">Repeat</label>
+          <select id="event-repeat">
+            <option value="none">One-time</option>
+            <option value="yearly">Every year (like birthdays, anniversaries)</option>
+          </select>
+
+          <button type="submit">Add event</button>
+        </form>
+        <!-- FRIEND-EVENT-FORM-END -->
+      </section>
+
+      <!-- === FORMS: ADD PERSONAL EVENT === -->
+      <section id="personal-event-section">
+        <h2>📅 Add Your Own Event</h2>
+        <!-- PERSONAL-EVENT-FORM-START -->
+        <form id="personal-event-form">
+          <label for="personal-title">What is it?</label>
+          <input id="personal-title" placeholder="e.g., Lunch with Bestie, Therapy, Kid’s birthday party" />
+
+          <label for="personal-date">Date</label>
+          <input id="personal-date" type="date" />
+
+          <label for="personal-time">Optional time</label>
+          <input id="personal-time" type="time" />
+
+          <label for="personal-notes">Notes</label>
+          <textarea id="personal-notes" placeholder="Where, who, anything you don’t want to forget."></textarea>
+
+          <button type="submit">Add event</button>
+        </form>
+        <!-- PERSONAL-EVENT-FORM-END -->
+      </section>
+
+    </div>
+  </main>
+ 
+   <!-- Full calendar modal -->
+  <div id="calendar-modal-backdrop" class="modal-backdrop">
+    <div class="modal">
+      <h3>Full calendar</h3>
+      <div id="calendar-modal-body" class="small">
+        <!-- Filled by JS -->
+      </div>
+      <button type="button" class="inline-button" onclick="closeCalendarModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- Simple reusable "Help me decide" modal -->
+  <div id="help-modal-backdrop" class="modal-backdrop">
+    <div id="help-modal" class="modal">
+      <h3 id="help-modal-title">Help me decide</h3>
+      <p id="help-modal-body" class="small">
+        TBD – we’ll add gentle, research-based guidance here later.
+      </p>
+      <button type="button" class="inline-button" onclick="closeHelpModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- Friend profile modal -->
+  <div id="friend-modal-backdrop" class="modal-backdrop">
+    <div class="modal">
+      <h3>➕ Add / Update Friend</h3>
+      <!-- FRIEND-FORM-START (now inside modal) -->
+      <form id="friend-form">
+        <input type="hidden" id="friend-id" />
+
+        <label for="friend-name">Name</label>
+        <input id="friend-name" placeholder="e.g., Rachel" />
+
+        <label for="friend-birthday">Birthday (optional)</label>
+        <input
+          id="friend-birthday"
+          type="text"
+          placeholder="mm/dd"
+          inputmode="numeric"
+          pattern="\d{1,2}/\d{1,2}"
+        />
+        <p class="small">
+          Month / day only (no year needed).
+        </p>
+
+        <label for="friend-category">Relationship category</label>
+        <div class="field-with-help">
+          <select id="friend-category">
+            <option value="bestie">Bestie / inner circle</option>
+            <option value="friend">Friend</option>
+            <option value="maybe">Friend / maybe-bestie-someday</option>
+            <option value="hiatus">On hiatus / low contact</option>
+          </select>
+          <button
+            type="button"
+            class="inline-button help-button"
+            onclick="openHelpModal('relationship-category')"
+          >
+            Help me decide
+          </button>
+        </div>
+
+        <label for="friend-safety-color">Safety / emotional impact</label>
+        <div class="field-with-help">
+          <select id="friend-safety-color">
+            <option value="green">🟢 Feels safe & nourishing</option>
+            <option value="yellow">🟡 Mixed / draining sometimes</option>
+            <option value="red">🔴 Harmful or potentially unsafe</option>
+          </select>
+          <button
+            type="button"
+            class="inline-button help-button"
+            onclick="openHelpModal('safety')"
+          >
+            Help me decide
+          </button>
+        </div>
+
+        <div class="two-cols">
+          <div>
+            <label for="friend-closeness">4×4: How close do YOU feel? (1–4)</label>
+            <div class="field-with-help">
+              <select id="friend-closeness">
+                <option value="1">1 – Mostly acquaintance</option>
+                <option value="2">2 – Casual friend</option>
+                <option value="3">3 – Close friend</option>
+                <option value="4" selected>4 – Deep / ride-or-die</option>
+              </select>
+              <button
+                type="button"
+                class="inline-button help-button"
+                onclick="openHelpModal('closeness')"
+              >
+                Help me decide
+              </button>
+            </div>
+          </div>
+          
+          <div>
+            <label for="friend-reciprocity">4×4: How much do THEY show up? (1–4)</label>
+            <div class="field-with-help">
+              <select id="friend-reciprocity">
+                <option value="4">4 – Very reliable</option>
+                <option value="3">3 – Pretty balanced</option>
+                <option value="2">2 – Slightly one-sided</option>
+                <option value="1">1 – Mostly you chasing</option>
+              </select>
+              <button
+                type="button"
+                class="inline-button help-button"
+                onclick="openHelpModal('reciprocity')"
+              >
+                Help me decide
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <label for="friend-last-contact">Last contact date</label>
+        <input id="friend-last-contact" type="date" />
+
+        <label for="friend-ideal-gap">Ideal check-in gap (days)</label>
+        <div class="field-with-help">
+          <input id="friend-ideal-gap" type="number" min="1" max="365" value="14" />
+          <button
+            type="button"
+            class="inline-button help-button"
+            onclick="openHelpModal('ideal-gap')"
+          >
+            Help me decide
+          </button>
+        </div>
+
+        <label for="friend-notes">Notes</label>
+        <textarea id="friend-notes" placeholder="Kids’ names, pronouns, triggers, how you met, etc."></textarea>
+
+        <label for="friend-photo-url">Photo URL (optional for now)</label>
+        <input id="friend-photo-url" placeholder="We can wire up full upload later" />
+
+        <div class="flex-row" style="justify-content:flex-end; margin-top:0.75rem;">
+          <button type="submit">Save friend</button>
+          <button type="button" id="friend-form-reset" class="inline-button">Clear form</button>
+          <button type="button" class="inline-button" onclick="closeFriendModal()">Close</button>
+        </div>
+      </form>
+      <!-- FRIEND-FORM-END -->
+    </div>
+  </div>
+
+  <!-- Friend event modal -->
+  <div id="friend-event-modal-backdrop" class="modal-backdrop">
+    <div class="modal">
+      <h3>🎉 Add Friend Event (birthday, surgery, trip…)</h3>
+      <!-- FRIEND-EVENT-FORM-START -->
+      <form id="friend-event-form">
+        <label for="event-friend-select">Friend</label>
+        <select id="event-friend-select">
+          <!-- Filled by JS -->
+        </select>
+
+        <label for="event-title">Event description</label>
+        <input id="event-title" placeholder="e.g., Birthday, Last chemo, Disneyland trip" />
+
+        <label for="event-type">Type</label>
+        <select id="event-type">
+          <option value="birthday">Birthday</option>
+          <option value="anniversary">Anniversary</option>
+          <option value="medical">Medical / surgery / treatment</option>
+          <option value="trip">Trip / big adventure</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label for="event-date">Date</label>
+        <input id="event-date" type="date" />
+
+        <label for="event-repeat">Repeat</label>
+        <select id="event-repeat">
+          <option value="none">One-time</option>
+          <option value="yearly">Every year (like birthdays, anniversaries)</option>
+        </select>
+
+        <div class="flex-row" style="justify-content:flex-end; margin-top:0.75rem;">
+          <button type="submit">Add event</button>
+          <button type="button" class="inline-button" onclick="closeFriendEventModal()">Close</button>
+        </div>
+      </form>
+      <!-- FRIEND-EVENT-FORM-END -->
+    </div>
+  </div>
+
+  <!-- Personal event modal -->
+  <div id="personal-event-modal-backdrop" class="modal-backdrop">
+    <div class="modal">
+      <h3>📅 Add Your Own Event</h3>
+      <!-- PERSONAL-EVENT-FORM-START -->
+      <form id="personal-event-form">
+        <label for="personal-title">What is it?</label>
+        <input id="personal-title" placeholder="e.g., Lunch with Bestie, Therapy, Kid’s birthday party" />
+
+        <label for="personal-date">Date</label>
+        <input id="personal-date" type="date" />
+
+        <label for="personal-time">Optional time</label>
+        <input id="personal-time" type="time" />
+
+        <label for="personal-notes">Notes</label>
+        <textarea id="personal-notes" placeholder="Where, who, anything you don’t want to forget."></textarea>
+
+        <div class="flex-row" style="justify-content:flex-end; margin-top:0.75rem;">
+          <button type="submit">Add event</button>
+          <button type="button" class="inline-button" onclick="closePersonalEventModal()">Close</button>
+        </div>
+      </form>
+      <!-- PERSONAL-EVENT-FORM-END -->
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // 4×4 FRIENDSHIP ANALYZER — SUPER SIMPLE JS BACKBONE
+    // Everything lives in localStorage under one key.
+    // ============================================================
+
+    const STORAGE_KEY = 'friendship_4x4_app_v1';
+
+    const today = () => {
+      const d = new Date();
+      return d.toISOString().slice(0, 10); // yyyy-mm-dd
+    };
+
+    // ---------------------- HELP ME DECIDE MODAL (STUB) ----------------------
+    function openHelpModal(topic) {
+      const backdrop = document.getElementById('help-modal-backdrop');
+      const titleEl = document.getElementById('help-modal-title');
+      const bodyEl = document.getElementById('help-modal-body');
+      if (!backdrop || !titleEl || !bodyEl) return;
+
+      const titles = {
+        'relationship-category': 'Help me decide: Relationship category',
+        'safety': 'Help me decide: Safety / emotional impact',
+        'closeness': 'Help me decide: 4×4 – How close do YOU feel?',
+        'reciprocity': 'Help me decide: 4×4 – How much do THEY show up?',
+        'ideal-gap': 'Help me decide: Ideal check-in gap'
+      };
+
+      const title = titles[topic] || 'Help me decide';
+      titleEl.textContent = title;
+
+      // TBD: later we’ll swap this for real guidance per topic
+      bodyEl.textContent = 'TBD – we will add gentle, research-based guidance here for: ' + title;
+
+      backdrop.style.display = 'flex';
+    }
+
+    function closeHelpModal() {
+      const backdrop = document.getElementById('help-modal-backdrop');
+      if (backdrop) {
+        backdrop.style.display = 'none';
+      }
+    }
+
+    // ---------------------- OTHER MODALS ----------------------
+
+    function openFriendModal() {
+      const backdrop = document.getElementById('friend-modal-backdrop');
+      if (backdrop) backdrop.style.display = 'flex';
+    }
+
+    function closeFriendModal() {
+      const backdrop = document.getElementById('friend-modal-backdrop');
+      if (backdrop) backdrop.style.display = 'none';
+    }
+
+    function openFriendEventModal() {
+      const backdrop = document.getElementById('friend-event-modal-backdrop');
+      if (backdrop) backdrop.style.display = 'flex';
+    }
+
+    function closeFriendEventModal() {
+      const backdrop = document.getElementById('friend-event-modal-backdrop');
+      if (backdrop) backdrop.style.display = 'none';
+    }
+
+    function openPersonalEventModal() {
+      const backdrop = document.getElementById('personal-event-modal-backdrop');
+      if (backdrop) backdrop.style.display = 'flex';
+    }
+
+    function closePersonalEventModal() {
+      const backdrop = document.getElementById('personal-event-modal-backdrop');
+      if (backdrop) backdrop.style.display = 'none';
+    }
+
+    // ---------------------- STATE ----------------------
+
+    let appState = {
+      friends: [],
+      personalEvents: []
+    };
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          appState = JSON.parse(raw);
+        }
+      } catch (e) {
+        console.warn('Could not load state:', e);
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      renderAll();
+    }
+
+    // Simple id generator
+    function makeId(prefix) {
+      return prefix + '_' + Math.random().toString(36).slice(2, 10);
+    }
+
+    // ---------------------- HELPERS ----------------------
+
+    function daysBetween(dateA, dateB) {
+      if (!dateA || !dateB) return null;
+      const a = new Date(dateA + 'T00:00:00');
+      const b = new Date(dateB + 'T00:00:00');
+      const diff = (b - a) / (1000 * 60 * 60 * 24);
+      return Math.round(diff);
+    }
+
+    function addDays(isoDate, days) {
+      const d = new Date(isoDate + 'T00:00:00');
+      d.setDate(d.getDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+
+    // Contact status based on lastContact + idealGapDays
+    // green  = within goal
+    // yellow = late, but less than 7 days past goal
+    // red    = 7+ days past goal
+    function getContactStatus(friend) {
+      const todayStr = today();
+      const last = friend.lastContact || null;
+      const gap = friend.idealGapDays ? Number(friend.idealGapDays) : 14;
+
+      if (!last) {
+        return {
+          dotClass: 'dot-yellow',
+          label: 'No contact date set yet.'
+        };
+      }
+
+      const days = daysBetween(last, todayStr);
+      if (days <= gap) {
+        return {
+          dotClass: 'dot-green',
+          label: `${days} days since contact (within your ${gap}-day goal).`
+        };
+      }
+
+      const lateBy = days - gap;
+      if (lateBy < 7) {
+        return {
+          dotClass: 'dot-yellow',
+          label: `${days} days since contact (${lateBy} days past your ${gap}-day goal).`
+        };
+      }
+
+      return {
+        dotClass: 'dot-red',
+        label: `${days} days since contact (7+ days past your ${gap}-day goal).`
+      };
+    }
+
+    function getNextOccurrence(event) {
+      // For yearly events, move to this year (or next if already passed).
+      if (!event.date) return null;
+      const base = new Date(event.date + 'T00:00:00');
+      const now = new Date();
+      if (event.repeat === 'yearly') {
+        const currentYear = now.getFullYear();
+        let next = new Date(base);
+        next.setFullYear(currentYear);
+        if (next < now) {
+          next.setFullYear(currentYear + 1);
+        }
+        return next.toISOString().slice(0, 10);
+      } else {
+        return event.date;
+      }
+    }
+
+    function describeFriendZone(friend) {
+      const c = Number(friend.closeness || 1);
+      const r = Number(friend.reciprocity || 1);
+      // This is deliberately simple for now; we can get fancier later.
+      if (c >= 3 && r >= 3) return 'Mutual, nourishing';
+      if (c >= 3 && r <= 2) return 'You love them more than they show up';
+      if (c <= 2 && r >= 3) return 'They chase you more';
+      return 'Light / neutral / unclear';
+    }
+
+    function categoryPill(category) {
+      switch (category) {
+        case 'bestie': return '<span class="pill pill-bestie">Bestie</span>';
+        case 'friend': return '<span class="pill pill-friend">Friend</span>';
+        case 'maybe': return '<span class="pill pill-maybe">Maybe-bestie</span>';
+        case 'hiatus': return '<span class="pill pill-hiatus">On hiatus</span>';
+        default: return '';
+      }
+    }
+
+    function safetyPill(color) {
+      switch (color) {
+        case 'green': return '<span class="pill pill-green">Safe</span>';
+        case 'yellow': return '<span class="pill pill-yellow">Mixed</span>';
+        case 'red': return '<span class="pill pill-red">Danger / protect heart</span>';
+        default: return '';
+      }
+    }
+
+    // ---------------------- RENDERING ----------------------
+
+    function renderUpcoming() {
+      const container = document.getElementById('upcoming-list');
+      const todayStr = today();
+      const limitDate = addDays(todayStr, 7);
+
+      const items = [];
+
+      // Friend events
+      appState.friends.forEach(friend => {
+        (friend.events || []).forEach(ev => {
+          const nextDate = getNextOccurrence(ev);
+          if (!nextDate) return;
+          if (nextDate >= todayStr && nextDate <= limitDate) {
+            items.push({
+              type: 'friend',
+              friendName: friend.name,
+              title: ev.title,
+              date: nextDate,
+              eventType: ev.type
+            });
+          }
+        });
+      });
+
+      // Personal events
+      (appState.personalEvents || []).forEach(ev => {
+        if (!ev.date) return;
+        if (ev.date >= todayStr && ev.date <= limitDate) {
+          items.push({
+            type: 'personal',
+            title: ev.title,
+            date: ev.date,
+            time: ev.time || '',
+            notes: ev.notes || ''
+          });
+        }
+      });
+
+      items.sort((a, b) => a.date.localeCompare(b.date));
+
+      if (!items.length) {
+        container.innerHTML = '<p class="muted">Nothing in the next 7 days. Space to breathe. 💛</p>';
+        return;
+      }
+
+      const lines = items.map(item => {
+        if (item.type === 'friend') {
+          return `
+            <div class="event-item">
+              <strong>${item.date}</strong> — ${item.title}
+              <span class="small">(${item.eventType}, ${item.friendName})</span>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="event-item">
+              <strong>${item.date}</strong> — ${item.title}
+              ${item.time ? `<span class="small"> at ${item.time}</span>` : ''}
+            </div>
+          `;
+        }
+      });
+
+      container.innerHTML = lines.join('');
+    }
+
+    function renderCheckins() {
+      const container = document.getElementById('checkin-list');
+      if (!container) return;
+      container.innerHTML = `
+        <p class="small">
+          4×4 chart coming soon. You’ll be able to see everyone laid out by closeness and showing-up-ness here,
+          and click a name to reassess. 💜
+        </p>
+      `;
+    }
+
+    function renderFriendsByCategory() {
+      const container = document.getElementById('friends-by-category');
+      if (!container) return;
+
+      const groups = {
+        bestie: [],
+        friend: [],
+        maybe: [],
+        hiatus: []
+      };
+
+      appState.friends.forEach(f => {
+        if (!groups[f.category]) groups[f.category] = [];
+        groups[f.category].push(f);
+      });
+
+      Object.keys(groups).forEach(k => {
+        groups[k].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      });
+
+      const blocks = [];
+
+      function renderGroup(title, key, openDefault) {
+        const arr = groups[key] || [];
+        const openAttr = openDefault ? ' open' : '';
+        let innerHTML = '';
+
+        if (!arr.length) {
+          innerHTML = '<p class="muted">None yet.</p>';
+        } else {
+          const cards = arr.map(f => {
+            const status = getContactStatus(f);
+            return `
+              <div class="friend-card">
+                <div class="flex-row">
+                  <span class="friend-name">${f.name}</span>
+                  ${categoryPill(f.category)}
+                </div>
+                <div class="small">
+                  <span class="status-dot ${status.dotClass}"></span>${status.label}<br />
+                  Birthday: ${f.birthday || '—'}<br />
+                  Last contact: ${f.lastContact || '—'}
+                </div>
+                <div class="small">
+                  ${f.notes ? f.notes : ''}
+                </div>
+                <button class="inline-button" onclick="markContactedToday('${f.id}')">Contacted today</button>
+                <button class="inline-button" onclick="editFriend('${f.id}')">Open profile</button>
+                <button class="inline-button" onclick="moveFriend('${f.id}', 'up')">Move up</button>
+                <button class="inline-button" onclick="moveFriend('${f.id}', 'down')">Move down</button>
+                <button class="inline-button" onclick="deleteFriend('${f.id}')">Delete</button>
+              </div>
+            `;
+          });
+          innerHTML = cards.join('');
+        }
+
+        return `
+          <details${openAttr}>
+            <summary>${title}</summary>
+            ${innerHTML}
+          </details>
+        `;
+      }
+
+      blocks.push(renderGroup('Besties / inner circle', 'bestie', true));
+      blocks.push(renderGroup('Friends', 'friend', false));
+      blocks.push(renderGroup('Acquaintances / new friends', 'maybe', false));
+      blocks.push(renderGroup('Low or no contact', 'hiatus', false));
+
+      container.innerHTML = blocks.join('');
+    }
+
+
+    function renderFriendOptionsForEvents() {
+      const select = document.getElementById('event-friend-select');
+      if (!select) return;
+      if (!appState.friends.length) {
+        select.innerHTML = '<option value="">(Add a friend first)</option>';
+        return;
+      }
+      const options = appState.friends
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(f => `<option value="${f.id}">${f.name}</option>`);
+      select.innerHTML = options.join('');
+    }
+
+    function renderAll() {
+      renderUpcoming();
+      renderCheckins();
+      renderFriendsByCategory();
+      renderFriendOptionsForEvents();
+    }
+
+    // ---------------------- MUTATIONS ----------------------
+
+    function markContactedToday(friendId) {
+      const f = appState.friends.find(x => x.id === friendId);
+      if (!f) return;
+      f.lastContact = today();
+      saveState();
+    }
+
+    function editFriend(friendId) {
+      const f = appState.friends.find(x => x.id === friendId);
+      if (!f) return;
+
+      document.getElementById('friend-id').value = f.id;
+      document.getElementById('friend-name').value = f.name || '';
+      document.getElementById('friend-birthday').value = f.birthday || '';
+      document.getElementById('friend-category').value = f.category || 'friend';
+      document.getElementById('friend-safety-color').value = f.safetyColor || 'green';
+      document.getElementById('friend-closeness').value = f.closeness || '1';
+      document.getElementById('friend-reciprocity').value = f.reciprocity || '1';
+      document.getElementById('friend-last-contact').value = f.lastContact || '';
+      document.getElementById('friend-ideal-gap').value = f.idealGapDays || 14;
+      document.getElementById('friend-notes').value = f.notes || '';
+      document.getElementById('friend-photo-url').value = f.photoUrl || '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      openFriendModal();
+    }
+    
+      function deleteFriend(friendId) {
+        const idx = appState.friends.findIndex(f => f.id === friendId);
+        if (idx === -1) return;
+    
+        const name = appState.friends[idx].name || 'this friend';
+        const ok = window.confirm(
+          `Delete "${name}" and all their attached events? This cannot be undone.`
+        );
+        if (!ok) return;
+    
+        appState.friends.splice(idx, 1);
+        saveState(); // this will re-render the left side + update the event dropdown
+      }
+
+    function moveFriend(friendId, direction) {
+      const order = ['hiatus', 'maybe', 'friend', 'bestie'];
+      const f = appState.friends.find(x => x.id === friendId);
+      if (!f) return;
+
+      const currentIndex = order.indexOf(f.category);
+      if (currentIndex === -1) return;
+
+      let newIndex = currentIndex + (direction === 'up' ? 1 : -1);
+      if (newIndex < 0) newIndex = 0;
+      if (newIndex >= order.length) newIndex = order.length - 1;
+
+      f.category = order[newIndex];
+      saveState();
+    }
+
+    // ---------------------- FORM HANDLERS ----------------------
+
+    function setupFriendForm() {
+      const form = document.getElementById('friend-form');
+      const resetBtn = document.getElementById('friend-form-reset');
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const id = document.getElementById('friend-id').value || makeId('friend');
+        const existingIndex = appState.friends.findIndex(f => f.id === id);
+
+        const nameInput = document.getElementById('friend-name').value.trim();
+        const birthdayInput = document.getElementById('friend-birthday').value || null;
+
+        if (!nameInput) {
+          alert('Please enter a name.');
+          return;
+        }
+
+        // Name must be unique (case-insensitive) unless it’s the same friend being edited
+        const duplicate = appState.friends.find(f =>
+          f.id !== id &&
+          f.name &&
+          f.name.toLowerCase() === nameInput.toLowerCase()
+        );
+        if (duplicate) {
+          alert(
+            `You already have a friend named "${nameInput}". Please add a last initial or tweak the name so they’re distinct.`
+          );
+          return;
+        }
+
+        // Cap at 100 friends for now
+        if (existingIndex === -1 && appState.friends.length >= 100) {
+          alert('You’ve reached the current limit of 100 friends. (We can raise this later if needed.)');
+          return;
+        }
+
+        const friend = {
+          id,
+          name: nameInput,
+          birthday: birthdayInput,
+          category: document.getElementById('friend-category').value,
+          safetyColor: document.getElementById('friend-safety-color').value,
+          closeness: document.getElementById('friend-closeness').value,
+          reciprocity: document.getElementById('friend-reciprocity').value,
+          lastContact: document.getElementById('friend-last-contact').value || null,
+          idealGapDays: Number(document.getElementById('friend-ideal-gap').value) || 14,
+          notes: document.getElementById('friend-notes').value.trim(),
+          photoUrl: document.getElementById('friend-photo-url').value.trim(),
+          events: existingIndex >= 0 ? (appState.friends[existingIndex].events || []) : []
+        };
+
+        if (existingIndex >= 0) {
+          appState.friends[existingIndex] = friend;
+        } else {
+          appState.friends.push(friend);
+        }
+
+
+        // Clear id so it turns into "add" again
+        document.getElementById('friend-id').value = '';
+        form.reset();
+        saveState();
+      });
+
+      resetBtn.addEventListener('click', () => {
+        document.getElementById('friend-id').value = '';
+        form.reset();
+      });
+    }
+
+    function setupFriendEventForm() {
+      const form = document.getElementById('friend-event-form');
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const friendId = document.getElementById('event-friend-select').value;
+        const friend = appState.friends.find(f => f.id === friendId);
+        if (!friend) {
+          alert('Please choose a friend.');
+          return;
+        }
+
+        const title = document.getElementById('event-title').value.trim();
+        const type = document.getElementById('event-type').value;
+        const date = document.getElementById('event-date').value;
+        const repeat = document.getElementById('event-repeat').value;
+
+        if (!title || !date) {
+          alert('Please enter an event description and date.');
+          return;
+        }
+
+        const ev = {
+          id: makeId('fevent'),
+          title,
+          type,
+          date,
+          repeat
+        };
+
+        if (!friend.events) friend.events = [];
+        friend.events.push(ev);
+
+        form.reset();
+        saveState();
+      });
+    }
+
+    function setupPersonalEventForm() {
+      const form = document.getElementById('personal-event-form');
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const title = document.getElementById('personal-title').value.trim();
+        const date = document.getElementById('personal-date').value;
+        const time = document.getElementById('personal-time').value;
+        const notes = document.getElementById('personal-notes').value.trim();
+
+        if (!title || !date) {
+          alert('Please enter a title and date.');
+          return;
+        }
+
+        const ev = {
+          id: makeId('pevent'),
+          title,
+          date,
+          time,
+          notes
+        };
+
+        appState.personalEvents.push(ev);
+        form.reset();
+        saveState();
+      });
+    }
+
+
+    // ---------------------- BACKUPS & EXPORTS ----------------------
+
+    // Generic download helper
+    function downloadFile(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // 2. Friends: pretty text export (readable)
+    function exportFriendCategoriesText() {
+      const now = new Date().toISOString();
+      const lines = [];
+      lines.push('Friendship Categories Export');
+      lines.push('Generated: ' + now);
+      lines.push('');
+
+      const groups = {
+        bestie: { title: 'Besties / inner circle', friends: [] },
+        friend: { title: 'Friends', friends: [] },
+        maybe: { title: 'Maybe-besties / unsure', friends: [] },
+        hiatus: { title: 'On hiatus / low contact', friends: [] }
+      };
+
+      appState.friends.forEach(f => {
+        if (!groups[f.category]) {
+          groups[f.category] = { title: f.category || 'Other', friends: [] };
+        }
+        groups[f.category].friends.push(f);
+      });
+
+      Object.keys(groups).forEach(key => {
+        const group = groups[key];
+        if (!group.friends.length) return;
+        lines.push('=== ' + group.title + ' ===');
+        const sorted = group.friends.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        sorted.forEach(f => {
+          lines.push('- Name: ' + (f.name || '(no name)'));
+          lines.push('  Safety: ' + (f.safetyColor || 'unknown'));
+          lines.push('  You / Them (4x4): ' + (f.closeness || '?') + ' / ' + (f.reciprocity || '?'));
+          lines.push('  Last contact: ' + (f.lastContact || '—'));
+          lines.push('  Ideal check-in gap (days): ' + (f.idealGapDays || '—'));
+          if (f.notes) {
+            lines.push('  Notes: ' + f.notes.replace(/\s+/g, ' ').trim());
+          }
+          const evs = (f.events || []).length;
+          if (evs) {
+            lines.push('  Events: ' + evs + ' attached');
+          }
+          lines.push('');
+        });
+        lines.push('');
+      });
+
+      if (!appState.friends.length) {
+        lines.push('[No friends saved yet.]');
+      }
+
+      const dateStr = today();
+      downloadFile('friendship-categories-' + dateStr + '.txt', lines.join('\n'));
+    }
+
+    // 3. Full JSON backup (friends + personalEvents)
+    function exportFullBackupJSON() {
+      const backup = {
+        friends: appState.friends || [],
+        personalEvents: appState.personalEvents || []
+      };
+      const text = JSON.stringify(backup, null, 2);
+      const dateStr = today();
+      downloadFile('friendship-backup-' + dateStr + '.json', text);
+    }
+
+    function importBackup(mode, data) {
+      if (!data || typeof data !== 'object') {
+        alert('Backup file format not recognized.');
+        return;
+      }
+      const friends = Array.isArray(data.friends) ? data.friends : null;
+      const personalEvents = Array.isArray(data.personalEvents) ? data.personalEvents : null;
+
+      if (!friends && !personalEvents) {
+        alert('Backup did not contain friends or personalEvents.');
+        return;
+      }
+
+      if (mode === 'overwrite') {
+        if (friends) appState.friends = friends;
+        if (personalEvents) appState.personalEvents = personalEvents;
+      } else {
+        // merge
+        if (friends) {
+          const byId = new Map((appState.friends || []).map(f => [f.id, f]));
+          friends.forEach(f => {
+            if (!f.id) {
+              f.id = makeId('friend');
+            }
+            byId.set(f.id, f);
+          });
+          appState.friends = Array.from(byId.values());
+        }
+
+        if (personalEvents) {
+          const existingIds = new Set((appState.personalEvents || []).map(ev => ev.id));
+          personalEvents.forEach(ev => {
+            if (!ev.id) ev.id = makeId('pevent');
+            if (!existingIds.has(ev.id)) {
+              appState.personalEvents.push(ev);
+            }
+          });
+        }
+      }
+
+      saveState();
+      alert('Backup imported successfully.');
+    }
+
+    // 4. Calendar exports
+
+    function getMonthBounds(offset) {
+      const now = new Date();
+      const baseYear = now.getFullYear();
+      const baseMonth = now.getMonth() + offset; // 0-based
+      const first = new Date(baseYear, baseMonth, 1);
+      const nextFirst = new Date(baseYear, baseMonth + 1, 1);
+      const start = first.toISOString().slice(0, 10);
+      const end = nextFirst.toISOString().slice(0, 10);
+      return { start, end, year: first.getFullYear(), monthIndex: first.getMonth() };
+    }
+
+    function exportRecurringCalendarText() {
+      const lines = [];
+      const now = new Date().toISOString();
+      lines.push('Recurring Friend Events (birthdays/anniversaries)');
+      lines.push('Generated: ' + now);
+      lines.push('');
+
+      let count = 0;
+      appState.friends.forEach(f => {
+        (f.events || []).forEach(ev => {
+          if (ev.repeat === 'yearly') {
+            count++;
+            lines.push('- ' + (ev.title || 'Event') + ' — ' + (f.name || '(no name)'));
+            lines.push('  Stored date: ' + (ev.date || '—') + '   Type: ' + (ev.type || ''));
+            lines.push('');
+          }
+        });
+      });
+
+      if (!count) {
+        lines.push('[No recurring friend events found.]');
+      }
+
+      const dateStr = today();
+      downloadFile('recurring-friend-events-' + dateStr + '.txt', lines.join('\n'));
+    }
+
+    function exportMonthCalendarText(offset) {
+      const { start, end, year, monthIndex } = getMonthBounds(offset);
+      const monthName = new Date(year, monthIndex, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+
+      const lines = [];
+      lines.push('Calendar events for ' + monthName);
+      lines.push('Date range: ' + start + ' to ' + end + ' (end not inclusive)');
+      lines.push('');
+
+      const events = [];
+
+      // Friend events (one-time and yearly)
+      appState.friends.forEach(f => {
+        (f.events || []).forEach(ev => {
+          if (!ev.date) return;
+          let eventDate = new Date(ev.date + 'T00:00:00');
+
+          if (ev.repeat === 'yearly') {
+            // Pin to this calendar year
+            eventDate.setFullYear(year);
+          }
+
+          const iso = eventDate.toISOString().slice(0, 10);
+          if (iso >= start && iso < end) {
+            events.push({
+              date: iso,
+              label: (ev.title || 'Event') + ' — ' + (f.name || '(no name)'),
+              type: 'friend',
+              extra: ev.type || ''
+            });
+          }
+        });
+      });
+
+      // Personal events
+      (appState.personalEvents || []).forEach(ev => {
+        if (!ev.date) return;
+        const iso = ev.date;
+        if (iso >= start && iso < end) {
+          events.push({
+            date: iso,
+            label: ev.title || 'Event',
+            type: 'personal',
+            extra: ev.time ? ('Time: ' + ev.time) : ''
+          });
+        }
+      });
+
+      events.sort((a, b) => a.date.localeCompare(b.date));
+
+      if (!events.length) {
+        lines.push('[No events found in this month.]');
+      } else {
+        events.forEach(e => {
+          lines.push('- ' + e.date + ' — ' + e.label + (e.extra ? ' (' + e.extra + ')' : ''));
+        });
+      }
+
+      const dateStr = today();
+      const suffix = offset === 0 ? 'current' : 'next';
+      downloadFile('calendar-' + suffix + '-month-' + dateStr + '.txt', lines.join('\n'));
+    }
+
+    // 4. In-app full calendar modal (current + next month)
+
+    let calendarOffset = 0;
+
+    function buildCalendarMonthHTML(offset) {
+      const { start, end, year, monthIndex } = getMonthBounds(offset);
+      const monthName = new Date(year, monthIndex, 1).toLocaleString(undefined, {
+        month: 'long',
+        year: 'numeric'
+      });
+
+      const events = [];
+
+      // Friend events (one-time and yearly)
+      appState.friends.forEach(f => {
+        (f.events || []).forEach(ev => {
+          if (!ev.date) return;
+          let eventDate = new Date(ev.date + 'T00:00:00');
+
+          if (ev.repeat === 'yearly') {
+            // Pin to this calendar year
+            eventDate.setFullYear(year);
+          }
+
+          const iso = eventDate.toISOString().slice(0, 10);
+          if (iso >= start && iso < end) {
+            events.push({
+              date: iso,
+              label: (ev.title || 'Event') + ' — ' + (f.name || '(no name)'),
+              type: 'friend',
+              extra: ev.type || ''
+            });
+          }
+        });
+      });
+
+      // Personal events
+      (appState.personalEvents || []).forEach(ev => {
+        if (!ev.date) return;
+        const iso = ev.date;
+        if (iso >= start && iso < end) {
+          events.push({
+            date: iso,
+            label: ev.title || 'Event',
+            type: 'personal',
+            extra: ev.time ? ('Time: ' + ev.time) : ''
+          });
+        }
+      });
+
+      events.sort((a, b) => a.date.localeCompare(b.date));
+
+      let html = `<h3>${monthName}</h3>`;
+      if (!events.length) {
+        html += '<p class="muted">No events found in this month.</p>';
+      } else {
+        html += '<ul class="small">';
+        events.forEach(e => {
+          const extra = e.extra ? ' (' + e.extra + ')' : '';
+          html += `<li><strong>${e.date}</strong> — ${e.label}${extra}</li>`;
+        });
+        html += '</ul>';
+      }
+      return html;
+    }
+
+    function renderCalendarModalContent() {
+      const bodyEl = document.getElementById('calendar-modal-body');
+      if (!bodyEl) return;
+
+      const monthHTML = buildCalendarMonthHTML(calendarOffset);
+      const navHTML = `
+        <div class="flex-row" style="justify-content:space-between; margin-bottom:0.5rem;">
+          <button type="button" class="inline-button" onclick="changeCalendarMonth(-1)">← Previous month</button>
+          <span class="small">Use the arrows to move between months.</span>
+          <button type="button" class="inline-button" onclick="changeCalendarMonth(1)">Next month →</button>
+        </div>
+      `;
+
+      bodyEl.innerHTML = navHTML + monthHTML;
+    }
+
+    function openCalendarModal() {
+      const backdrop = document.getElementById('calendar-modal-backdrop');
+      if (!backdrop) return;
+      calendarOffset = 0; // start at current month each time
+      backdrop.style.display = 'flex';
+      renderCalendarModalContent();
+    }
+
+    function changeCalendarMonth(delta) {
+      calendarOffset += delta;
+      renderCalendarModalContent();
+    }
+
+
+    function closeCalendarModal() {
+      const backdrop = document.getElementById('calendar-modal-backdrop');
+      if (backdrop) {
+        backdrop.style.display = 'none';
+      }
+    }
+
+    // 5. Wire up the buttons / file input
+    function setupBackupControls() {
+      const btnFriendText = document.getElementById('btn-export-friend-text');
+      const btnBackupJson = document.getElementById('btn-export-backup-json');
+      const btnRecurring = document.getElementById('btn-export-recurring');
+      const btnMonthCurrent = document.getElementById('btn-export-month-current');
+      const btnMonthNext = document.getElementById('btn-export-month-next');
+      const inputFile = document.getElementById('backup-import-input');
+      const modeSelect = document.getElementById('backup-import-mode');
+
+      if (btnFriendText) {
+        btnFriendText.addEventListener('click', () => {
+          exportFriendCategoriesText();
+        });
+      }
+
+      if (btnBackupJson) {
+        btnBackupJson.addEventListener('click', () => {
+          exportFullBackupJSON();
+        });
+      }
+
+      if (btnRecurring) {
+        btnRecurring.addEventListener('click', () => {
+          exportRecurringCalendarText();
+        });
+      }
+
+      if (btnMonthCurrent) {
+        btnMonthCurrent.addEventListener('click', () => {
+          exportMonthCalendarText(0);
+        });
+      }
+
+      if (btnMonthNext) {
+        btnMonthNext.addEventListener('click', () => {
+          exportMonthCalendarText(1);
+        });
+      }
+
+      if (inputFile && modeSelect) {
+        inputFile.addEventListener('change', (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          const mode = modeSelect.value || 'overwrite';
+
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const text = reader.result;
+              const data = JSON.parse(text);
+              importBackup(mode, data);
+            } catch (err) {
+              console.error(err);
+              alert('Could not read backup JSON: ' + err.message);
+            } finally {
+              // reset input so you can re-upload same file if needed
+              inputFile.value = '';
+            }
+          };
+          reader.readAsText(file);
+        });
+      }
+    }
+
+    // ---------------------- INIT ----------------------
+    function initDemoSeedIfEmpty() {
+      if (appState.friends.length === 0 && appState.personalEvents.length === 0) {
+        const demoFriend = {
+          id: makeId('friend'),
+          name: 'Demo Bestie',
+          category: 'bestie',
+          safetyColor: 'green',
+          closeness: '4',
+          reciprocity: '4',
+          lastContact: today(),
+          idealGapDays: 7,
+          notes: 'Delete me once you add your real humans.',
+          photoUrl: '',
+          events: [{
+            id: makeId('fevent'),
+            title: 'Birthday',
+            type: 'birthday',
+            date: today(),
+            repeat: 'yearly'
+          }]
+        };
+        appState.friends.push(demoFriend);
+      }
+    }
+
+    function init() {
+      loadState();
+      initDemoSeedIfEmpty();
+      setupFriendForm();
+      setupFriendEventForm();
+      setupPersonalEventForm();
+      setupBackupControls();
+
+      const calendarBtn = document.getElementById('open-calendar-btn');
+      if (calendarBtn) {
+        calendarBtn.addEventListener('click', openCalendarModal);
+      }
+
+      const friendBtn = document.getElementById('open-friend-modal-btn');
+      if (friendBtn) {
+        friendBtn.addEventListener('click', openFriendModal);
+      }
+
+      const friendEventBtn = document.getElementById('open-friend-event-modal-btn');
+      if (friendEventBtn) {
+        friendEventBtn.addEventListener('click', openFriendEventModal);
+      }
+
+      const personalEventBtn = document.getElementById('open-personal-event-modal-btn');
+      if (personalEventBtn) {
+        personalEventBtn.addEventListener('click', openPersonalEventModal);
+      }
+
+      renderAll();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
